@@ -37,3 +37,7 @@ ZSCORE_PEER_BEAR      = 0.6
 
 VIX_LIMITE            = 25
 MACRO_MINIMO_ON       = 3    # quantos dos 4 indicadores macro precisam estar OK para Bull mode
+
+# Classificacao de risco por volatilidade anualizada
+VOL_BAIXA             = 0.35   # < 35% a.a. → baixo risco
+VOL_ALTA              = 0.65   # > 65% a.a. → alto risco

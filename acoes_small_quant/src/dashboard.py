@@ -77,7 +77,7 @@ def calcular_tudo(periodo):
     setores = setores_ativos(etfs, regime)
     snap["setor_ativo"] = snap["setor"].map(setores).fillna(False)
 
-    candidatas = snap[snap["setor_ativo"] & snap["distorcao_flag"]].sort_values("zscore")
+    candidatas = snap[snap["setor_ativo"] & snap["flag_bull"]].sort_values("zscore")
 
     if not candidatas.empty:
         carteira = (

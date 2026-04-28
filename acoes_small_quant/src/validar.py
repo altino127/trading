@@ -135,28 +135,21 @@ except Exception as e:
 titulo("ETAPA 4 — Carteira da Semana Atual")
 
 try:
-    snap["setor_ativo"]   = snap["setor"].map(setores).fillna(False)
-    snap["distorcao_flag"] = snap["zscore"] < -1.0
+    from scanner import rodar_scanner
+    carteira, modo_atual = rodar_scanner(acoes, indices, etfs)
+    ok(f"{len(carteira)} posicoes geradas [{modo_atual.upper()} MODE]")
 
-    candidatas = snap[snap["setor_ativo"] & snap["distorcao_flag"]].sort_values("zscore").reset_index()
-
-    if candidatas.empty:
-        info("Nenhuma candidata esta semana (regime ou setores sem sinal).")
-    else:
-        carteira = (
-            candidatas
-            .groupby("setor", group_keys=False)
-            .apply(lambda g: g.nsmallest(1, "zscore"))
-            .reset_index(drop=True)
-        )
-        ok(f"{len(carteira)} ações selecionadas para a carteira desta semana:")
-        print()
-        print(f"  {'TICKER':<12} {'SETOR':<25} {'Z-SCORE':>8} {'BETA':>6}")
-        print(f"  {'-'*12} {'-'*25} {'-'*8} {'-'*6}")
-        for _, row in carteira.iterrows():
-            print(f"  {row['ticker']:<12} {row['setor']:<25} {row['zscore']:>+8.2f} {row['beta']:>6.2f}")
+    # resumo por nivel de risco
+    if not carteira.empty and "risco" in carteira.columns:
+        for nivel in ["Baixa Volatilidade - baixo risco",
+                      "Media Volatilidade - medio risco",
+                      "Alta Volatilidade - alto risco"]:
+            n = (carteira["risco"] == nivel).sum()
+            if n > 0:
+                info(f"{n} posicao(oes) com {nivel}")
 except Exception as e:
     erro(f"Falha scanner: {e}")
+    import traceback; traceback.print_exc()
     sys.exit(1)
 
 

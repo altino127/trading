@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from beta import calcular_retornos, beta_todos
-from distorcao import calcular_distorcoes, calcular_zscore_peer
+from distorcao import calcular_distorcoes, calcular_zscore_peer, calcular_volatilidade, classificar_risco
 from config import JANELA_BETA_DIAS, JANELA_MOMENTUM_DIAS, ZSCORE_ENTRADA_BULL, ZSCORE_PEER_BEAR, SETORES, MACRO_MINIMO_ON
 from smll_composicao import SMLL_COMPOSICAO
 
@@ -71,46 +71,42 @@ def _selecionar_carteira(
     snap_zscore: pd.DataFrame,
     snap_beta: pd.DataFrame,
     snap_peer: pd.DataFrame,
+    snap_vols: pd.DataFrame,
     sinais: pd.DataFrame,
 ) -> tuple[pd.DataFrame, str]:
     if data not in snap_zscore.index:
         return pd.DataFrame(), "bull"
 
-    modo = "bull" if sinais.loc[data, "modo_bull"] == 1 else "bear"
-    z    = snap_zscore.loc[data].dropna()
-    b    = snap_beta.loc[data].dropna()
-    zp   = snap_peer.loc[data].dropna() if data in snap_peer.index else pd.Series()
-
+    modo       = "bull" if sinais.loc[data, "modo_bull"] == 1 else "bear"
+    z          = snap_zscore.loc[data].dropna()
+    b          = snap_beta.loc[data].dropna()
+    zp         = snap_peer.loc[data].dropna() if data in snap_peer.index else pd.Series()
+    vols_hoje  = snap_vols.loc[data].dropna() if data in snap_vols.index else pd.Series()
     setores_ok = _setor_ativo_em(data, sinais, modo)
 
     registros = []
     for ticker in z.index:
-        nome  = ticker.replace(".SA", "")
-        setor = SMLL_COMPOSICAO.get(nome, "Desconhecido")
-        if not setores_ok.get(setor, False):
-            continue
-
-        zscore_val = z[ticker]
+        nome       = ticker.replace(".SA", "")
+        setor      = SMLL_COMPOSICAO.get(nome, "Desconhecido")
+        ativo      = setores_ok.get(setor, False)
+        vol_val    = float(vols_hoje.get(ticker, 0.5))
         zpeer_val  = zp.get(ticker, np.nan)
-
-        if modo == "bull" and zscore_val >= ZSCORE_ENTRADA_BULL:
-            continue
-        if modo == "bear" and (pd.isna(zpeer_val) or zpeer_val <= ZSCORE_PEER_BEAR):
-            continue
 
         registros.append({
             "ticker":      ticker,
             "setor":       setor,
-            "zscore":      zscore_val,
+            "zscore":      z[ticker],
             "zscore_peer": zpeer_val,
             "beta":        b.get(ticker, np.nan),
+            "vol":         vol_val,
+            "risco":       classificar_risco(vol_val, ativo),
             "modo":        modo,
         })
 
     if not registros:
         return pd.DataFrame(), modo
 
-    df = pd.DataFrame(registros)
+    df       = pd.DataFrame(registros)
     sort_col = "zscore" if modo == "bull" else "zscore_peer"
     asc      = modo == "bull"
 
@@ -139,6 +135,7 @@ def rodar_backteste(
     betas_full   = beta_todos(ret_acoes, ret_ibov)
     zscores_full = calcular_distorcoes(ret_acoes, ret_ibov, betas_full)
     peer_full    = calcular_zscore_peer(ret_acoes, SMLL_COMPOSICAO)
+    vols_full    = calcular_volatilidade(ret_acoes)
 
     print("Pre-calculando sinais bull/bear...")
     sinais = _pre_calcular_sinais(precos_indices, precos_etfs)
@@ -162,7 +159,7 @@ def rodar_backteste(
         data_sinal = pos_sinal[-1]
 
         carteira, modo = _selecionar_carteira(
-            data_sinal, zscores_full, betas_full, peer_full, sinais
+            data_sinal, zscores_full, betas_full, peer_full, vols_full, sinais
         )
         if carteira.empty:
             equity[entrada] = 0.0
@@ -192,9 +189,11 @@ def rodar_backteste(
                 "ticker":      ticker,
                 "setor":       row["setor"],
                 "modo":        modo,
+                "risco":       row.get("risco", ""),
                 "zscore":      row["zscore"],
                 "zscore_peer": row.get("zscore_peer", np.nan),
                 "beta":        row["beta"],
+                "vol":         row.get("vol", np.nan),
                 "retorno":     ret,
             })
             retornos_semana.append(ret)

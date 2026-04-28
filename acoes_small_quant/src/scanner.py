@@ -1,8 +1,13 @@
 import pandas as pd
+import numpy as np
 from beta import calcular_retornos, beta_todos
-from distorcao import calcular_distorcoes, calcular_zscore_peer, snapshot_atual
+from distorcao import (
+    calcular_distorcoes, calcular_zscore_peer,
+    calcular_volatilidade, classificar_risco, snapshot_atual,
+)
 from momentum import regime_macro_ok, setores_ativos, resumo_regime, modo_mercado
-from smll_composicao import SMLL_COMPOSICAO, acoes_por_setor
+from smll_composicao import SMLL_COMPOSICAO
+from config import SETORES
 
 
 def rodar_scanner(
@@ -18,41 +23,42 @@ def rodar_scanner(
     betas        = beta_todos(ret_acoes, ret_ibov)
     zscores      = calcular_distorcoes(ret_acoes, ret_ibov, betas)
     zscores_peer = calcular_zscore_peer(ret_acoes, SMLL_COMPOSICAO)
+    vols         = calcular_volatilidade(ret_acoes).iloc[-1].dropna()
 
-    spy   = precos_indices["spy"].dropna() if "spy" in precos_indices.columns else None
+    spy     = precos_indices["spy"].dropna() if "spy" in precos_indices.columns else None
     regime  = regime_macro_ok(precos_indices)
     setores = setores_ativos(precos_etfs, regime, spy)
     modo    = modo_mercado(regime)
     resumo_regime(regime, setores, modo)
 
-    snap = snapshot_atual(zscores, betas, zscores_peer)
-    snap["setor"] = snap.index.map(
-        lambda t: SMLL_COMPOSICAO.get(t.replace(".SA", ""), "Desconhecido")
-    )
+    snap = snapshot_atual(zscores, betas, zscores_peer, vols)
+    snap["setor"]       = snap.index.map(lambda t: SMLL_COMPOSICAO.get(t.replace(".SA", ""), "Desconhecido"))
     snap["setor_ativo"] = snap["setor"].map(setores).fillna(False)
 
-    # seleciona flag correta pelo modo
-    flag_col = "flag_bull" if modo == "bull" else "flag_bear"
-    candidatas = (
-        snap[snap["setor_ativo"] & snap[flag_col]]
-        .sort_values("zscore" if modo == "bull" else "zscore_peer",
-                     ascending=(modo == "bull"))
-        .reset_index()
+    # Classifica risco para cada ação
+    snap["risco"] = snap.apply(
+        lambda r: classificar_risco(r["vol"] if not pd.isna(r["vol"]) else 0.5, r["setor_ativo"]),
+        axis=1,
     )
 
-    print(f"\n=== CANDIDATAS DA SEMANA [{modo.upper()} MODE] ===")
-    if candidatas.empty:
-        print("  Nenhuma candidata encontrada.")
-        return pd.DataFrame(), modo
+    # Ordena pelo sinal do modo atual
+    sort_col, asc = ("zscore", True) if modo == "bull" else ("zscore_peer", False)
+    candidatas = snap.sort_values(sort_col, ascending=asc).reset_index()
 
+    # Sempre 1 por setor — usa sort_values + head(1) para lidar com NaN
     carteira = (
         candidatas
         .groupby("setor", group_keys=False)
-        .apply(lambda g: g.nsmallest(1, "zscore") if modo == "bull"
-               else g.nlargest(1, "zscore_peer"))
+        .apply(lambda g: g.sort_values(sort_col, ascending=asc, na_position="last").head(1))
         .reset_index(drop=True)
     )
 
-    cols = ["ticker", "setor", "zscore", "zscore_peer", "beta"]
-    print(carteira[[c for c in cols if c in carteira.columns]].to_string(index=False))
+    print(f"\n=== CARTEIRA DA SEMANA [{modo.upper()} MODE] ===")
+    print(f"{'TICKER':<12} {'SETOR':<25} {'Z-IBOV':>7} {'Z-PEER':>7} {'VOL':>6}  RISCO")
+    print("-" * 90)
+    for _, row in carteira.iterrows():
+        zpeer = f"{row['zscore_peer']:+.2f}" if not pd.isna(row.get("zscore_peer")) else "  n/a"
+        vol   = f"{row['vol']:.0%}" if not pd.isna(row.get("vol")) else "  n/a"
+        print(f"{row['ticker']:<12} {row['setor']:<25} {row['zscore']:>+7.2f} {zpeer:>7} {vol:>6}  {row['risco']}")
+
     return carteira, modo
