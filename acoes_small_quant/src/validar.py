@@ -12,8 +12,8 @@ import sys
 from coleta import baixar_etfs_setoriais, baixar_indices, baixar_acoes_smll
 from smll_composicao import todos_os_tickers, SMLL_COMPOSICAO
 from beta import calcular_retornos, beta_todos
-from distorcao import calcular_distorcoes, snapshot_atual
-from momentum import regime_macro_ok, setores_ativos, resumo_regime
+from distorcao import calcular_distorcoes, calcular_zscore_peer, snapshot_atual
+from momentum import regime_macro_ok, setores_ativos, resumo_regime, modo_mercado
 from backteste import rodar_backteste
 from metricas import resumo_metricas, retorno_por_setor, equity_curve
 
@@ -85,22 +85,29 @@ try:
     ret_indices = calcular_retornos(indices)
     ret_ibov    = ret_indices["ibov"].dropna()
 
-    betas   = beta_todos(ret_acoes, ret_ibov)
-    zscores = calcular_distorcoes(ret_acoes, ret_ibov, betas)
+    betas        = beta_todos(ret_acoes, ret_ibov)
+    zscores      = calcular_distorcoes(ret_acoes, ret_ibov, betas)
+    zscores_peer = calcular_zscore_peer(ret_acoes, SMLL_COMPOSICAO)
 
-    ok(f"Betas calculados para {betas.shape[1]} ações")
-    ok(f"Z-scores calculados para {zscores.shape[1]} ações")
+    ok(f"Betas calculados para {betas.shape[1]} acoes")
+    ok(f"Z-scores (IBOV) para {zscores.shape[1]} acoes")
+    ok(f"Z-scores (peer) para {zscores_peer.shape[1]} acoes")
 
-    snap = snapshot_atual(zscores, betas)
+    snap = snapshot_atual(zscores, betas, zscores_peer)
     snap.index.name = "ticker"
     snap["setor"] = snap.index.map(
         lambda t: SMLL_COMPOSICAO.get(t.replace(".SA", ""), "Desconhecido")
     )
 
-    print(f"\n  Top 5 maiores distorções negativas (candidatas):")
-    top5 = snap.nsmallest(5, "zscore")[["zscore", "beta", "setor"]]
+    print(f"\n  Top 5 distorcoes vs IBOV [BULL MODE]:")
+    top5 = snap.nsmallest(5, "zscore")[["zscore", "zscore_peer", "beta", "setor"]]
     for ticker, row in top5.iterrows():
-        print(f"    {ticker:<12} z={row['zscore']:+.2f}  beta={row['beta']:.2f}  [{row['setor']}]")
+        print(f"    {ticker:<12} z_ibov={row['zscore']:+.2f}  z_peer={row['zscore_peer']:+.2f}  [{row['setor']}]")
+
+    print(f"\n  Top 5 forca relativa vs peers [BEAR MODE]:")
+    top5b = snap.nlargest(5, "zscore_peer")[["zscore", "zscore_peer", "beta", "setor"]]
+    for ticker, row in top5b.iterrows():
+        print(f"    {ticker:<12} z_ibov={row['zscore']:+.2f}  z_peer={row['zscore_peer']:+.2f}  [{row['setor']}]")
 
 except Exception as e:
     erro(f"Falha beta/z-score: {e}")
@@ -111,9 +118,11 @@ except Exception as e:
 titulo("ETAPA 3 — Regime Macro e Setores Ativos")
 
 try:
+    spy     = indices["spy"] if "spy" in indices.columns else None
     regime  = regime_macro_ok(indices)
-    setores = setores_ativos(etfs, regime)
-    resumo_regime(regime, setores)
+    modo    = modo_mercado(regime)
+    setores = setores_ativos(etfs, regime, spy)
+    resumo_regime(regime, setores, modo)
 
     n_ativos = sum(v for v in setores.values())
     info(f"{n_ativos}/11 setores com fator global ativo hoje")
