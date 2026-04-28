@@ -25,9 +25,9 @@ def _pre_calcular_sinais(precos_indices: pd.DataFrame, precos_etfs: pd.DataFrame
         sinais["vix_ok"] & sinais["russell_ok"]
     )
 
-    for setor, etf in SETORES.items():
-        if etf in precos_etfs.columns:
-            sinais[f"etf_{setor}"] = _momentum_serie(precos_etfs[etf], j)
+    for setor in SETORES:
+        if setor in precos_etfs.columns:
+            sinais[f"etf_{setor}"] = _momentum_serie(precos_etfs[setor], j)
         else:
             sinais[f"etf_{setor}"] = 0
 

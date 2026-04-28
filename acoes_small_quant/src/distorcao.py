@@ -47,6 +47,7 @@ def snapshot_atual(zscores: pd.DataFrame, betas: pd.DataFrame) -> pd.DataFrame:
         "beta": beta_atual,
     }).dropna()
 
+    df.index.name = "ticker"
     df = df.sort_values("zscore")
     df["distorcao_flag"] = df["zscore"] < ZSCORE_ENTRADA
     return df

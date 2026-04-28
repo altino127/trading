@@ -10,14 +10,14 @@ SMLL_COMPOSICAO = {
     "IRBR3":  "Financeiro",
     "BPAC11": "Financeiro",
     "WIZC3":  "Financeiro",
-    "APER3":  "Financeiro",
+    "BBSE3":  "Financeiro",
 
     # Consumo Discricionário
-    "SOMA3":  "Consumo Discricionário",
     "VIVA3":  "Consumo Discricionário",
     "SBFG3":  "Consumo Discricionário",
     "CEAB3":  "Consumo Discricionário",
     "TFCO4":  "Consumo Discricionário",
+    "ALPA4":  "Consumo Discricionário",
 
     # Consumo Básico
     "SMFT3":  "Consumo Básico",
@@ -28,13 +28,13 @@ SMLL_COMPOSICAO = {
     "HAPV3":  "Saúde",
     "ONCO3":  "Saúde",
     "MATD3":  "Saúde",
-    "CMIN3":  "Saúde",
+    "FLRY3":  "Saúde",
 
     # Tecnologia
-    "TOTVS3": "Tecnologia",
+    "TOTS3":  "Tecnologia",
     "LWSA3":  "Tecnologia",
     "DESK3":  "Tecnologia",
-    "BRIT3":  "Tecnologia",
+    "POSI3":  "Tecnologia",
 
     # Energia
     "CGAS5":  "Energia",
@@ -43,14 +43,14 @@ SMLL_COMPOSICAO = {
 
     # Materiais Básicos
     "AURA33": "Materiais Básicos",
-    "MBLY3":  "Materiais Básicos",
+    "CMIN3":  "Materiais Básicos",
     "RECV3":  "Materiais Básicos",
 
     # Utilidades
     "SAPR11": "Utilidades",
     "CSMG3":  "Utilidades",
-    "ENBR3":  "Utilidades",
     "CPFE3":  "Utilidades",
+    "CASN3":  "Utilidades",
 
     # Imobiliário
     "CYRE3":  "Imobiliário",
@@ -60,7 +60,7 @@ SMLL_COMPOSICAO = {
 
     # Comunicações
     "TIMS3":  "Comunicações",
-    "LVTC3":  "Comunicações",
+    "OIBR3":  "Comunicações",
 
     # Industrial
     "RAIL3":  "Industrial",

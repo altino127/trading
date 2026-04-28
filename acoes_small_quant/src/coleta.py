@@ -6,10 +6,7 @@ from config import SETORES, INDICES
 def baixar_etfs_setoriais(periodo="1y") -> pd.DataFrame:
     tickers = list(SETORES.values())
     data = yf.download(tickers, period=periodo, interval="1d", auto_adjust=True, progress=False)["Close"]
-    data.columns = {v: k for k, v in SETORES.items()}[data.columns] if len(tickers) == 1 else data.rename(
-        columns={v: k for k, v in SETORES.items()}
-    )
-    return data
+    return data.rename(columns={v: k for k, v in SETORES.items()})
 
 
 def baixar_indices(periodo="1y") -> pd.DataFrame:

@@ -26,11 +26,11 @@ def setores_ativos(etfs: pd.DataFrame, regime: dict) -> dict:
     macro_base_ok = regime["ibov_ok"] and regime["smll_ok"] and regime["vix_ok"]
 
     resultado = {}
-    for setor, etf_ticker in SETORES.items():
-        if etf_ticker not in etfs.columns:
+    for setor in SETORES:
+        if setor not in etfs.columns:
             resultado[setor] = False
             continue
-        etf_ok = momentum_positivo(etfs[etf_ticker])
+        etf_ok = momentum_positivo(etfs[setor])
         resultado[setor] = macro_base_ok and etf_ok and regime["russell_ok"]
 
     return resultado

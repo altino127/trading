@@ -22,6 +22,7 @@ def rodar_scanner(
     zscores = calcular_distorcoes(ret_acoes, ret_ibov, betas)
 
     snap = snapshot_atual(zscores, betas)
+    snap.index.name = "ticker"
     snap["setor"] = snap.index.map(
         lambda t: SMLL_COMPOSICAO.get(t.replace(".SA", ""), "Desconhecido")
     )
@@ -35,6 +36,7 @@ def rodar_scanner(
     candidatas = (
         snap[snap["setor_ativo"] & snap["distorcao_flag"]]
         .sort_values("zscore")
+        .reset_index()
     )
 
     print("\n=== CANDIDATAS DA SEMANA ===")
@@ -46,8 +48,7 @@ def rodar_scanner(
         candidatas
         .groupby("setor", group_keys=False)
         .apply(lambda g: g.nsmallest(1, "zscore"))
-        .reset_index()
-        .rename(columns={"index": "ticker"})
+        .reset_index(drop=True)
     )
 
     print(carteira[["ticker", "setor", "zscore", "beta"]].to_string(index=False))

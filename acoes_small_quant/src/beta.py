@@ -4,7 +4,8 @@ from config import JANELA_BETA_DIAS
 
 
 def calcular_retornos(precos: pd.DataFrame) -> pd.DataFrame:
-    return precos.pct_change().dropna()
+    validos = precos.dropna(axis=1, how="all")
+    return validos.pct_change().dropna(how="all")
 
 
 def rolling_beta(retornos_acao: pd.Series, retornos_benchmark: pd.Series, janela: int = JANELA_BETA_DIAS) -> pd.Series:
