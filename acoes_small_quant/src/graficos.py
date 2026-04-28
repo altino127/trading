@@ -146,39 +146,110 @@ def grafico_desempenho_etfs(precos_etfs: pd.DataFrame, janela: int = 20) -> go.F
     return fig
 
 
+RISCO_COR = {
+    "Baixa Volatilidade - baixo risco":  VERDE,
+    "Media Volatilidade - medio risco":  AMARELO,
+    "Alta Volatilidade - alto risco":    VERMELHO,
+}
+
+RISCO_EMOJI = {
+    "Baixa Volatilidade - baixo risco":  "Baixo risco",
+    "Media Volatilidade - medio risco":  "Medio risco",
+    "Alta Volatilidade - alto risco":    "Alto risco",
+}
+
+RISCO_BG = {
+    "Baixa Volatilidade - baixo risco":  "rgba(0,200,150,0.12)",
+    "Media Volatilidade - medio risco":  "rgba(255,215,0,0.10)",
+    "Alta Volatilidade - alto risco":    "rgba(255,75,75,0.12)",
+}
+
+
 def grafico_carteira(carteira: pd.DataFrame) -> go.Figure:
     if carteira.empty:
         return go.Figure()
 
+    tem_risco    = "risco" in carteira.columns
+    tem_peer     = "zscore_peer" in carteira.columns
+    tem_vol      = "vol" in carteira.columns
+    tem_modo     = "modo" in carteira.columns
+
+    def _cor_risco(r):
+        return RISCO_COR.get(r, CINZA) if tem_risco else CINZA
+
+    def _label_risco(r):
+        return RISCO_EMOJI.get(r, r) if tem_risco else ""
+
+    def _bg_risco(r):
+        return RISCO_BG.get(r, BG2) if tem_risco else BG2
+
+    riscos    = carteira["risco"].tolist() if tem_risco else [""] * len(carteira)
+    cor_risco = [_cor_risco(r) for r in riscos]
+    bg_risco  = [_bg_risco(r) for r in riscos]
+    lbl_risco = [_label_risco(r) for r in riscos]
+
+    zpeer_vals = (
+        [f"{v:+.2f}" if not pd.isna(v) else "n/a"
+         for v in carteira["zscore_peer"]]
+        if tem_peer else ["n/a"] * len(carteira)
+    )
+    vol_vals = (
+        [f"{v:.0%}" if not pd.isna(v) else "n/a"
+         for v in carteira["vol"]]
+        if tem_vol else ["n/a"] * len(carteira)
+    )
+    modo_vals = carteira["modo"].str.upper().tolist() if tem_modo else [""] * len(carteira)
+
+    headers = ["Ticker", "Setor", "Modo", "Z-IBOV", "Z-Peer", "Vol", "Risco"]
+    valores  = [
+        carteira["ticker"],
+        carteira["setor"],
+        modo_vals,
+        carteira["zscore"].round(2),
+        zpeer_vals,
+        vol_vals,
+        lbl_risco,
+    ]
+
     fig = go.Figure(go.Table(
+        columnwidth=[90, 160, 60, 70, 70, 60, 130],
         header=dict(
-            values=["Ticker", "Setor", "Z-score", "Beta"],
+            values=headers,
             fill_color="#2B2B3B",
-            font=dict(color="white", size=13),
+            font=dict(color="white", size=12),
             align="left",
-            height=36,
+            height=38,
         ),
         cells=dict(
-            values=[
-                carteira["ticker"],
-                carteira["setor"],
-                carteira["zscore"].round(2),
-                carteira["beta"].round(2),
+            values=valores,
+            fill_color=[
+                [BG2] * len(carteira),
+                [BG2] * len(carteira),
+                [BG2] * len(carteira),
+                [BG2] * len(carteira),
+                [BG2] * len(carteira),
+                [BG2] * len(carteira),
+                bg_risco,
             ],
-            fill_color=BG2,
-            font=dict(color=[
-                [VERDE if z < -1.5 else AMARELO for z in carteira["zscore"]],
-                ["white"] * len(carteira),
-                [VERDE if z < -1.5 else AMARELO for z in carteira["zscore"]],
-                ["white"] * len(carteira),
-            ], size=12),
+            font=dict(
+                color=[
+                    ["white"] * len(carteira),
+                    ["white"] * len(carteira),
+                    [AZUL] * len(carteira),
+                    ["white"] * len(carteira),
+                    ["white"] * len(carteira),
+                    ["white"] * len(carteira),
+                    cor_risco,
+                ],
+                size=12,
+            ),
             align="left",
-            height=32,
+            height=34,
         ),
     ))
     fig.update_layout(
         paper_bgcolor=BG,
         margin=dict(t=10, b=10, l=10, r=10),
-        height=60 + len(carteira) * 34,
+        height=70 + len(carteira) * 36,
     )
     return fig

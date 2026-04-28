@@ -6,8 +6,8 @@ from pathlib import Path
 from coleta import baixar_etfs_setoriais, baixar_indices, baixar_acoes_smll
 from smll_composicao import todos_os_tickers, SMLL_COMPOSICAO
 from beta import calcular_retornos, beta_todos
-from distorcao import calcular_distorcoes, snapshot_atual
-from momentum import regime_macro_ok, setores_ativos
+from distorcao import calcular_distorcoes, calcular_zscore_peer, calcular_volatilidade, snapshot_atual
+from momentum import regime_macro_ok, setores_ativos, modo_mercado
 from scanner import rodar_scanner
 from backteste import rodar_backteste
 from metricas import resumo_metricas, retorno_por_setor, equity_curve
@@ -26,7 +26,7 @@ from graficos import (
     grafico_desempenho_etfs,
     grafico_carteira,
 )
-from config import JANELA_BETA_DIAS, JANELA_MOMENTUM_DIAS, ZSCORE_ENTRADA
+from config import JANELA_BETA_DIAS, JANELA_MOMENTUM_DIAS, ZSCORE_ENTRADA_BULL
 
 DATA_DIR = Path(__file__).parent.parent / "data"
 REPORTS_DIR = Path(__file__).parent.parent / "reports"
@@ -62,35 +62,23 @@ def carregar_dados(periodo):
 def calcular_tudo(periodo):
     etfs, indices, acoes = carregar_dados(periodo)
 
-    ret_acoes = calcular_retornos(acoes)
+    ret_acoes   = calcular_retornos(acoes)
     ret_indices = calcular_retornos(indices)
-    ret_ibov = ret_indices["ibov"].dropna()
+    ret_ibov    = ret_indices["ibov"].dropna()
 
-    betas = beta_todos(ret_acoes, ret_ibov)
-    zscores = calcular_distorcoes(ret_acoes, ret_ibov, betas)
-    snap = snapshot_atual(zscores, betas)
-    snap["setor"] = snap.index.map(
-        lambda t: SMLL_COMPOSICAO.get(t.replace(".SA", ""), "Desconhecido")
-    )
+    betas        = beta_todos(ret_acoes, ret_ibov)
+    zscores      = calcular_distorcoes(ret_acoes, ret_ibov, betas)
+    zscores_peer = calcular_zscore_peer(ret_acoes, SMLL_COMPOSICAO)
+    vols         = calcular_volatilidade(ret_acoes).iloc[-1].dropna()
 
-    regime = regime_macro_ok(indices)
-    setores = setores_ativos(etfs, regime)
-    snap["setor_ativo"] = snap["setor"].map(setores).fillna(False)
+    spy     = indices["spy"].dropna() if "spy" in indices.columns else None
+    regime  = regime_macro_ok(indices)
+    setores = setores_ativos(etfs, regime, spy)
+    modo    = modo_mercado(regime)
 
-    candidatas = snap[snap["setor_ativo"] & snap["flag_bull"]].sort_values("zscore")
+    carteira, _ = rodar_scanner(acoes, indices, etfs)
 
-    if not candidatas.empty:
-        carteira = (
-            candidatas
-            .groupby("setor", group_keys=False)
-            .apply(lambda g: g.nsmallest(1, "zscore"))
-            .reset_index()
-            .rename(columns={"index": "ticker"})
-        )
-    else:
-        carteira = pd.DataFrame()
-
-    return etfs, indices, acoes, betas, zscores, regime, setores, carteira
+    return etfs, indices, acoes, betas, zscores, zscores_peer, regime, setores, modo, carteira
 
 
 # ── Sidebar ─────────────────────────────────────────────────────────────────
@@ -123,12 +111,12 @@ with st.sidebar:
 
 # ── Carregamento ─────────────────────────────────────────────────────────────
 with st.spinner("Baixando e calculando dados..."):
-    etfs, indices, acoes, betas, zscores, regime, setores, carteira = calcular_tudo(periodo)
+    etfs, indices, acoes, betas, zscores, zscores_peer, regime, setores, modo, carteira = calcular_tudo(periodo)
 
 
 # ── Header ───────────────────────────────────────────────────────────────────
 st.title("SmallQuant BR — Carteira Semanal")
-st.caption(f"Semana {semana.week}/{semana.year}  |  Z-score entrada: {ZSCORE_ENTRADA}  |  Beta janela: {JANELA_BETA_DIAS}d")
+st.caption(f"Semana {semana.week}/{semana.year}  |  Modo: {modo.upper()}  |  Z-score bull: {ZSCORE_ENTRADA_BULL}  |  Beta janela: {JANELA_BETA_DIAS}d")
 st.divider()
 
 
@@ -157,18 +145,30 @@ with col4:
 with col5:
     n_ativos = sum(v for v in setores.values())
     n_carteira = len(carteira) if not carteira.empty else 0
-    st.metric("Setores ativos", f"{n_ativos}/11", delta=f"{n_carteira} na carteira")
+    st.metric("Setores ativos", f"{n_ativos}/11", delta=f"{n_carteira} posicoes")
 
 
 st.divider()
 
 
 # ── Carteira da semana ────────────────────────────────────────────────────────
-st.subheader("Carteira da Semana")
+modo_label = "BEAR MODE — Forca Relativa" if modo == "bear" else "BULL MODE — Reversao a Media"
+st.subheader(f"Carteira da Semana  [{modo_label}]")
 
 if carteira.empty:
-    st.warning("Nenhuma ação selecionada — regime macro ou setores sem sinal ativo.")
+    st.warning("Nenhuma posicao gerada.")
 else:
+    # Contadores de risco
+    if "risco" in carteira.columns:
+        c_baixo  = (carteira["risco"].str.contains("baixo")).sum()
+        c_medio  = (carteira["risco"].str.contains("medio")).sum()
+        c_alto   = (carteira["risco"].str.contains("alto")).sum()
+        rb, rm, ra = st.columns(3)
+        rb.metric("Baixo risco",  f"{c_baixo} posicao(oes)",  delta="Baixa Volatilidade")
+        rm.metric("Medio risco",  f"{c_medio} posicao(oes)",  delta="Media Volatilidade")
+        ra.metric("Alto risco",   f"{c_alto} posicao(oes)",   delta="Alta Volatilidade")
+        st.markdown("")
+
     st.plotly_chart(grafico_carteira(carteira), use_container_width=True)
 
     csv = carteira.to_csv(index=False).encode("utf-8")
@@ -223,18 +223,28 @@ ticker_sel = st.selectbox("Selecione a ação", tickers_disponíveis)
 
 if ticker_sel:
     snap_acao = zscores[ticker_sel].dropna()
+    peer_acao = zscores_peer[ticker_sel].dropna() if ticker_sel in zscores_peer.columns else pd.Series()
     beta_acao = betas[ticker_sel].dropna() if ticker_sel in betas.columns else pd.Series()
 
-    col_z, col_b2 = st.columns(2)
-    with col_z:
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
         if not snap_acao.empty:
-            st.metric("Z-score atual", f"{snap_acao.iloc[-1]:.2f}")
-    with col_b2:
+            st.metric("Z-score vs IBOV", f"{snap_acao.iloc[-1]:.2f}")
+    with c2:
+        if not peer_acao.empty:
+            st.metric("Z-score vs Peers", f"{peer_acao.iloc[-1]:.2f}")
+    with c3:
         if not beta_acao.empty:
-            st.metric("Beta atual (vs IBOV)", f"{beta_acao.iloc[-1]:.2f}")
+            st.metric("Beta (vs IBOV)", f"{beta_acao.iloc[-1]:.2f}")
+    with c4:
+        if not carteira.empty and "ticker" in carteira.columns:
+            match = carteira[carteira["ticker"] == ticker_sel]
+            if not match.empty and "risco" in match.columns:
+                risco_label = match.iloc[0]["risco"].split(" - ")[-1]
+                st.metric("Risco", risco_label)
 
     st.plotly_chart(
-        grafico_zscore_acao(zscores, ticker_sel, ZSCORE_ENTRADA),
+        grafico_zscore_acao(zscores, ticker_sel, ZSCORE_ENTRADA_BULL),
         use_container_width=True,
     )
 
