@@ -1,0 +1,25 @@
+22:19:44 | INFO     | ============================================================
+22:19:44 | INFO     |   FUCSIA DOLAR inicializado
+22:19:44 | INFO     |   Ativo:    WDOM26
+22:19:44 | INFO     |   Gatilho:  +-1.00% do open 09:00
+22:19:44 | INFO     |   Stop:     7 pts  (R$ 70)
+22:19:44 | INFO     |   Gain:     10 pts  (R$ 100)
+22:19:44 | INFO     |   Janela:   09:00 - 16:30 BRT
+22:19:44 | INFO     |   Modo:     SIMULACAO
+22:19:44 | INFO     | ============================================================
+22:19:44 | INFO     | OpenFAST conectado: version|2.0
+22:19:44 | INFO     | Corretora: BROKER_STATUS|sem permissao
+22:19:44 | INFO     | Assinaturas ativas: SQT + TICKS + SIGNORDERS + POS
+22:19:44 | INFO     | FUCSIA DOLAR ativo - aguardando 09:00 BRT...
+22:19:44 | INFO     | Open 09:00 capturado: 5024.5
+22:19:44 | INFO     |   Gatilho COMPRA (queda 1%): <= 4974.3
+22:19:44 | INFO     |   Gatilho VENDA  (alta  1%): >= 5074.7
+22:20:12 | INFO     | ============================================================
+22:20:12 | INFO     |   FUCSIA DOLAR inicializado
+22:20:12 | INFO     |   Ativo:    WDOM26
+22:20:12 | INFO     |   Gatilho:  +-1.00% do open 09:00
+22:20:12 | INFO     |   Stop:     7 pts  (R$ 70)
+22:20:12 | INFO     |   Gain:     10 pts  (R$ 100)
+22:20:12 | INFO     |   Janela:   09:00 - 16:30 BRT
+22:20:12 | INFO     |   Modo:     SIMULACAO
+22:20:12 | INFO     | ============================================================
