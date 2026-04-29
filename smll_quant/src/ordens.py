@@ -40,8 +40,8 @@ def gerar_ordens(
         daily_vol   = vol / np.sqrt(252)
         holding_vol = daily_vol * np.sqrt(dias_hold)
 
-        # Stop: 2 desvios do periodo de holding (minimo 2%, maximo 15%)
-        stop_pct = float(np.clip(-2.0 * holding_vol, -0.15, -0.02))
+        # Stop: 1 desvio do periodo de holding (minimo 2%, maximo 8%)
+        stop_pct = float(np.clip(-1.0 * holding_vol, -0.08, -0.02))
 
         # Alvo: magnitude do z-score × vol do periodo (minimo risco/retorno 1.5:1)
         if modo == "bull":
@@ -50,7 +50,7 @@ def gerar_ordens(
             zpeer = row.get("zscore_peer", np.nan)
             z_mag = abs(float(zpeer)) if not pd.isna(zpeer) else 1.0
 
-        alvo_pct = float(np.clip(z_mag * holding_vol, abs(stop_pct) * 1.5, 0.25))
+        alvo_pct = float(np.clip(z_mag * holding_vol, abs(stop_pct) * 1.5, 0.15))
 
         rr = round(alvo_pct / abs(stop_pct), 1)
 
