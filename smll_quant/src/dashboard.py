@@ -67,6 +67,11 @@ def carregar_dados(periodo):
 def calcular_tudo(periodo):
     etfs, indices, acoes = carregar_dados(periodo)
 
+    criticos = ["ibov", "smll", "russell", "vix"]
+    faltando = [c for c in criticos if c not in indices.columns or indices[c].dropna().empty]
+    if faltando:
+        raise RuntimeError(f"Dados indisponiveis para: {faltando}. Tente 'Atualizar dados'.")
+
     ret_acoes   = calcular_retornos(acoes)
     ret_indices = calcular_retornos(indices)
     ret_ibov    = ret_indices["ibov"].dropna()
@@ -115,8 +120,12 @@ with st.sidebar:
 
 
 # ── Carregamento ─────────────────────────────────────────────────────────────
-with st.spinner("Baixando e calculando dados..."):
-    etfs, indices, acoes, betas, zscores, zscores_peer, regime, setores, modo, carteira = calcular_tudo(periodo)
+try:
+    with st.spinner("Baixando e calculando dados..."):
+        etfs, indices, acoes, betas, zscores, zscores_peer, regime, setores, modo, carteira = calcular_tudo(periodo)
+except RuntimeError as e:
+    st.error(f"Falha na coleta de dados: {e}")
+    st.stop()
 
 
 # ── Header ───────────────────────────────────────────────────────────────────
