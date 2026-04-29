@@ -1,3 +1,6 @@
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 import streamlit as st
 import pandas as pd
 from datetime import date
@@ -25,7 +28,9 @@ from graficos import (
     grafico_zscore_acao,
     grafico_desempenho_etfs,
     grafico_carteira,
+    grafico_ordens,
 )
+from ordens import gerar_ordens
 from config import JANELA_BETA_DIAS, JANELA_MOMENTUM_DIAS, ZSCORE_ENTRADA_BULL
 
 DATA_DIR = Path(__file__).parent.parent / "data"
@@ -178,6 +183,27 @@ else:
         file_name=f"carteira_{semana.year}_W{semana.week:02d}.csv",
         mime="text/csv",
     )
+
+
+st.divider()
+
+
+# ── Ordens da Semana ─────────────────────────────────────────────────────────
+st.subheader("Ordens da Semana — Como Operar")
+
+if not carteira.empty:
+    ordens = gerar_ordens(carteira, acoes, dias_hold=5)
+    st.plotly_chart(grafico_ordens(ordens), use_container_width=True)
+
+    csv_ordens = ordens.to_csv(index=False).encode("utf-8")
+    st.download_button(
+        "Exportar ordens (.csv)",
+        data=csv_ordens,
+        file_name=f"ordens_{semana.year}_W{semana.week:02d}.csv",
+        mime="text/csv",
+    )
+else:
+    st.info("Nenhuma ordem gerada — carteira vazia.")
 
 
 st.divider()

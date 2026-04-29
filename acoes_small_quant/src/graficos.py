@@ -253,3 +253,94 @@ def grafico_carteira(carteira: pd.DataFrame) -> go.Figure:
         height=70 + len(carteira) * 36,
     )
     return fig
+
+
+def grafico_ordens(ordens: pd.DataFrame) -> go.Figure:
+    if ordens.empty:
+        return go.Figure()
+
+    riscos    = ordens["risco"].tolist()
+    cor_risco = [RISCO_COR.get(r, CINZA) for r in riscos]
+    bg_risco  = [RISCO_BG.get(r, BG2)   for r in riscos]
+    lbl_risco = [RISCO_EMOJI.get(r, r)   for r in riscos]
+
+    def fmt_preco(v):
+        return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") if not pd.isna(v) else "n/a"
+
+    entradas = [fmt_preco(v) for v in ordens["preco_entrada"]]
+    stops_r  = [f"{v:.1%}" for v in ordens["stop_pct"]]
+    stops_p  = [fmt_preco(v) for v in ordens["stop_preco"]]
+    alvos_r  = [f"+{v:.1%}" for v in ordens["alvo_pct"]]
+    alvos_p  = [fmt_preco(v) for v in ordens["alvo_preco"]]
+    rr_vals  = [f"{v:.1f}x" for v in ordens["risco_retorno"]]
+
+    headers = ["Ticker", "Setor", "Modo", "Operacao", "Entrada", "Stop %", "Stop R$", "Alvo %", "Alvo R$", "R/R", "Saida", "Risco"]
+    valores  = [
+        ordens["ticker"],
+        ordens["setor"],
+        ordens["modo"],
+        ordens["operacao"],
+        entradas,
+        stops_r,
+        stops_p,
+        alvos_r,
+        alvos_p,
+        rr_vals,
+        ordens["dt_saida"],
+        lbl_risco,
+    ]
+
+    n = len(ordens)
+
+    fig = go.Figure(go.Table(
+        columnwidth=[80, 140, 55, 80, 90, 60, 90, 60, 90, 45, 90, 120],
+        header=dict(
+            values=headers,
+            fill_color="#2B2B3B",
+            font=dict(color="white", size=11),
+            align="center",
+            height=38,
+        ),
+        cells=dict(
+            values=valores,
+            fill_color=[
+                [BG2] * n,
+                [BG2] * n,
+                [BG2] * n,
+                ["rgba(0,200,150,0.15)"] * n,
+                [BG2] * n,
+                ["rgba(255,75,75,0.12)"] * n,
+                ["rgba(255,75,75,0.12)"] * n,
+                ["rgba(0,200,150,0.12)"] * n,
+                ["rgba(0,200,150,0.12)"] * n,
+                [BG2] * n,
+                [BG2] * n,
+                bg_risco,
+            ],
+            font=dict(
+                color=[
+                    ["white"] * n,
+                    ["white"] * n,
+                    [AZUL] * n,
+                    [VERDE] * n,
+                    ["white"] * n,
+                    [VERMELHO] * n,
+                    [VERMELHO] * n,
+                    [VERDE] * n,
+                    [VERDE] * n,
+                    [AMARELO] * n,
+                    ["white"] * n,
+                    cor_risco,
+                ],
+                size=11,
+            ),
+            align="center",
+            height=34,
+        ),
+    ))
+    fig.update_layout(
+        paper_bgcolor=BG,
+        margin=dict(t=10, b=10, l=10, r=10),
+        height=70 + n * 36,
+    )
+    return fig
