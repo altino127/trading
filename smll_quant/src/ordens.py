@@ -50,7 +50,7 @@ def gerar_ordens(
             zpeer = row.get("zscore_peer", np.nan)
             z_mag = abs(float(zpeer)) if not pd.isna(zpeer) else 1.0
 
-        alvo_pct = float(np.clip(z_mag * holding_vol, abs(stop_pct) * 1.5, 0.15))
+        alvo_pct = float(np.clip(z_mag * holding_vol, abs(stop_pct) * 2.0, 0.15))
 
         rr = round(alvo_pct / abs(stop_pct), 1)
 
