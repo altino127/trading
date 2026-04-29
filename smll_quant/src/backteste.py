@@ -74,6 +74,7 @@ def _selecionar_carteira(
     snap_peer: pd.DataFrame,
     snap_vols: pd.DataFrame,
     sinais: pd.DataFrame,
+    precos_acoes: pd.DataFrame,
 ) -> tuple[pd.DataFrame, str]:
     if data not in snap_zscore.index:
         return pd.DataFrame(), "bull"
@@ -88,6 +89,17 @@ def _selecionar_carteira(
     if not peso_map:
         return pd.DataFrame(), modo
 
+    # MA20 da própria ação na data do sinal
+    loc = precos_acoes.index.get_loc(data) if data in precos_acoes.index else None
+    if loc is not None and loc >= JANELA_MOMENTUM_DIAS:
+        janela = precos_acoes.iloc[loc - JANELA_MOMENTUM_DIAS: loc + 1]
+        ma20_val  = janela.mean()
+        preco_val = precos_acoes.iloc[loc]
+        ma20_map  = {col: (preco_val[col] > ma20_val[col]) for col in precos_acoes.columns
+                     if not pd.isna(preco_val.get(col)) and not pd.isna(ma20_val.get(col))}
+    else:
+        ma20_map = {}
+
     sort_col, asc = ("zscore", True) if modo == "bull" else ("zscore_peer", False)
 
     registros = []
@@ -96,13 +108,30 @@ def _selecionar_carteira(
         setor     = SMLL_COMPOSICAO.get(nome, "Desconhecido")
         if setor not in peso_map:
             continue
-        vol_val   = float(vols_hoje.get(ticker, 0.5))
-        zpeer_val = zp.get(ticker, np.nan)
+
+        zscore_val = float(z[ticker])
+        zpeer_val  = float(zp.get(ticker, np.nan))
+        vol_val    = float(vols_hoje.get(ticker, 0.5))
+        acima_ma20 = ma20_map.get(ticker, False)
+
+        # Filtro 1: threshold de z-score
+        if modo == "bull":
+            if zscore_val >= ZSCORE_ENTRADA_BULL:
+                continue
+            # Filtro 2 (bull): ação deve estar ABAIXO da MA20 (distorção real confirmada)
+            if acima_ma20:
+                continue
+        else:
+            if pd.isna(zpeer_val) or zpeer_val <= ZSCORE_PEER_BEAR:
+                continue
+            # Filtro 2 (bear): ação deve estar ACIMA da MA20 (força relativa confirmada)
+            if not acima_ma20:
+                continue
 
         registros.append({
             "ticker":      ticker,
             "setor":       setor,
-            "zscore":      z[ticker],
+            "zscore":      zscore_val,
             "zscore_peer": zpeer_val,
             "beta":        b.get(ticker, np.nan),
             "vol":         vol_val,
@@ -213,7 +242,7 @@ def rodar_backteste(
         data_sinal = pos_sinal[-1]
 
         carteira, modo = _selecionar_carteira(
-            data_sinal, zscores_full, betas_full, peer_full, vols_full, sinais
+            data_sinal, zscores_full, betas_full, peer_full, vols_full, sinais, precos_acoes
         )
         if carteira.empty:
             equity[entrada] = 0.0

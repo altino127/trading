@@ -7,7 +7,7 @@ from distorcao import (
 )
 from momentum import regime_macro_ok, setores_ativos, resumo_regime, modo_mercado, score_setores
 from smll_composicao import SMLL_COMPOSICAO
-from config import SETORES, N_SETORES_CARTEIRA, PESOS_RANK
+from config import SETORES, N_SETORES_CARTEIRA, PESOS_RANK, ZSCORE_ENTRADA_BULL, ZSCORE_PEER_BEAR, JANELA_MOMENTUM_DIAS
 
 
 def rodar_scanner(
@@ -35,6 +35,22 @@ def rodar_scanner(
     snap["setor"]       = snap.index.map(lambda t: SMLL_COMPOSICAO.get(t.replace(".SA", ""), "Desconhecido"))
     snap["setor_ativo"] = snap["setor"].map(setores).fillna(False)
 
+    # Filtro 1: MA20 da própria ação (tendência)
+    ma20 = precos_acoes.rolling(JANELA_MOMENTUM_DIAS).mean().iloc[-1]
+    preco_atual = precos_acoes.iloc[-1]
+    acima_ma20  = (preco_atual > ma20).reindex(snap.index.str.replace("ticker", ""))
+    snap["acima_ma20"] = precos_acoes.columns.isin(
+        preco_atual[preco_atual > ma20].index
+    ).tolist()[:len(snap)] if len(snap) > 0 else False
+
+    # Constrói mapa ticker → acima_ma20
+    ma20_map = {}
+    for col in precos_acoes.columns:
+        p = preco_atual.get(col, np.nan)
+        m = ma20.get(col, np.nan)
+        ma20_map[col] = (not pd.isna(p) and not pd.isna(m) and p > m)
+    snap["acima_ma20"] = snap.index.map(lambda t: ma20_map.get(t, False))
+
     # Ranking dos N setores mais fortes e seus pesos
     scores    = score_setores(precos_etfs, regime, spy)
     top_rank  = sorted(scores.items(), key=lambda x: x[1], reverse=True)[:N_SETORES_CARTEIRA]
@@ -48,19 +64,37 @@ def rodar_scanner(
         axis=1,
     )
 
-    # Ordena pelo sinal do modo atual e filtra top N setores
     sort_col, asc = ("zscore", True) if modo == "bull" else ("zscore_peer", False)
-    candidatas = snap[snap["setor"].isin(setores_top)].sort_values(sort_col, ascending=asc).reset_index()
+    candidatas = snap[snap["setor"].isin(setores_top)].reset_index()
 
-    # 1 ação por setor (dos top N)
-    carteira = (
-        candidatas
-        .groupby("setor", group_keys=False)
-        .apply(lambda g: g.sort_values(sort_col, ascending=asc, na_position="last").head(1))
-        .reset_index(drop=True)
-    )
+    # Filtro 2: threshold de z-score — só entra com sinal real
+    if modo == "bull":
+        candidatas = candidatas[candidatas["zscore"] < ZSCORE_ENTRADA_BULL]
+        # Filtro 3 (bull): ação deve estar ABAIXO da MA20 (distorção negativa real)
+        candidatas = candidatas[~candidatas["ticker"].map(lambda t: ma20_map.get(t, True))]
+    else:
+        candidatas = candidatas[candidatas["zscore_peer"] > ZSCORE_PEER_BEAR]
+        # Filtro 3 (bear): ação deve estar ACIMA da MA20 (força relativa confirmada)
+        candidatas = candidatas[candidatas["ticker"].map(lambda t: ma20_map.get(t, False))]
 
-    carteira["peso"] = carteira["setor"].map(peso_map)
+    candidatas = candidatas.sort_values(sort_col, ascending=asc)
+
+    # 1 ação por setor (dos top N) — só setores com candidato válido
+    if candidatas.empty:
+        carteira = pd.DataFrame()
+    else:
+        carteira = (
+            candidatas
+            .groupby("setor", group_keys=False)
+            .apply(lambda g: g.sort_values(sort_col, ascending=asc, na_position="last").head(1))
+            .reset_index(drop=True)
+        )
+
+    if carteira.empty:
+        print(f"\n[AVISO] Nenhum candidato passou os filtros em [{modo.upper()} MODE]")
+        return pd.DataFrame(), modo
+
+    carteira["peso"] = carteira["setor"].map(peso_map).fillna(PESOS_RANK[-1])
     carteira["modo"] = modo
 
     print(f"\n=== CARTEIRA DA SEMANA [{modo.upper()} MODE] — TOP {N_SETORES_CARTEIRA} SETORES ===")
