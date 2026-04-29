@@ -35,21 +35,19 @@ def rodar_scanner(
     snap["setor"]       = snap.index.map(lambda t: SMLL_COMPOSICAO.get(t.replace(".SA", ""), "Desconhecido"))
     snap["setor_ativo"] = snap["setor"].map(setores).fillna(False)
 
-    # Filtro 1: MA20 da própria ação (tendência)
-    ma20 = precos_acoes.rolling(JANELA_MOMENTUM_DIAS).mean().iloc[-1]
+    # Filtro de tendência: MA20 (bear) e MA60 (bull)
     preco_atual = precos_acoes.iloc[-1]
-    acima_ma20  = (preco_atual > ma20).reindex(snap.index.str.replace("ticker", ""))
-    snap["acima_ma20"] = precos_acoes.columns.isin(
-        preco_atual[preco_atual > ma20].index
-    ).tolist()[:len(snap)] if len(snap) > 0 else False
+    ma20 = precos_acoes.rolling(20).mean().iloc[-1]
+    ma60 = precos_acoes.rolling(60).mean().iloc[-1]
 
-    # Constrói mapa ticker → acima_ma20
     ma20_map = {}
+    ma60_map = {}
     for col in precos_acoes.columns:
         p = preco_atual.get(col, np.nan)
-        m = ma20.get(col, np.nan)
-        ma20_map[col] = (not pd.isna(p) and not pd.isna(m) and p > m)
-    snap["acima_ma20"] = snap.index.map(lambda t: ma20_map.get(t, False))
+        m20 = ma20.get(col, np.nan)
+        m60 = ma60.get(col, np.nan)
+        ma20_map[col] = (not pd.isna(p) and not pd.isna(m20) and p > m20)
+        ma60_map[col] = (not pd.isna(p) and not pd.isna(m60) and p > m60)
 
     # Ranking dos N setores mais fortes e seus pesos
     scores    = score_setores(precos_etfs, regime, spy)
@@ -67,14 +65,16 @@ def rodar_scanner(
     sort_col, asc = ("zscore", True) if modo == "bull" else ("zscore_peer", False)
     candidatas = snap[snap["setor"].isin(setores_top)].reset_index()
 
-    # Filtro 2: threshold de z-score — só entra com sinal real
+    # Filtro threshold de z-score + confirmação de tendência
     if modo == "bull":
+        # Só entra com distorção real
         candidatas = candidatas[candidatas["zscore"] < ZSCORE_ENTRADA_BULL]
-        # Filtro 3 (bull): ação deve estar ABAIXO da MA20 (distorção negativa real)
-        candidatas = candidatas[~candidatas["ticker"].map(lambda t: ma20_map.get(t, True))]
+        # Ação deve estar acima da MA60 — lag temporário, tendência de médio prazo intacta
+        candidatas = candidatas[candidatas["ticker"].map(lambda t: ma60_map.get(t, False))]
     else:
+        # Só entra com força relativa real
         candidatas = candidatas[candidatas["zscore_peer"] > ZSCORE_PEER_BEAR]
-        # Filtro 3 (bear): ação deve estar ACIMA da MA20 (força relativa confirmada)
+        # Ação deve estar acima da MA20 — confirma força relativa genuína
         candidatas = candidatas[candidatas["ticker"].map(lambda t: ma20_map.get(t, False))]
 
     candidatas = candidatas.sort_values(sort_col, ascending=asc)

@@ -89,16 +89,20 @@ def _selecionar_carteira(
     if not peso_map:
         return pd.DataFrame(), modo
 
-    # MA20 da própria ação na data do sinal
+    # MA20 e MA60 da própria ação na data do sinal
     loc = precos_acoes.index.get_loc(data) if data in precos_acoes.index else None
-    if loc is not None and loc >= JANELA_MOMENTUM_DIAS:
-        janela = precos_acoes.iloc[loc - JANELA_MOMENTUM_DIAS: loc + 1]
-        ma20_val  = janela.mean()
+    ma20_map = {}
+    ma60_map = {}
+    if loc is not None and loc >= 60:
         preco_val = precos_acoes.iloc[loc]
-        ma20_map  = {col: (preco_val[col] > ma20_val[col]) for col in precos_acoes.columns
-                     if not pd.isna(preco_val.get(col)) and not pd.isna(ma20_val.get(col))}
-    else:
-        ma20_map = {}
+        ma20_val  = precos_acoes.iloc[max(0, loc - 20): loc + 1].mean()
+        ma60_val  = precos_acoes.iloc[max(0, loc - 60): loc + 1].mean()
+        for col in precos_acoes.columns:
+            p = preco_val.get(col, np.nan)
+            if pd.isna(p):
+                continue
+            ma20_map[col] = p > ma20_val.get(col, np.nan)
+            ma60_map[col] = p > ma60_val.get(col, np.nan)
 
     sort_col, asc = ("zscore", True) if modo == "bull" else ("zscore_peer", False)
 
@@ -114,18 +118,18 @@ def _selecionar_carteira(
         vol_val    = float(vols_hoje.get(ticker, 0.5))
         acima_ma20 = ma20_map.get(ticker, False)
 
-        # Filtro 1: threshold de z-score
+        # Filtro threshold + confirmação de tendência
         if modo == "bull":
             if zscore_val >= ZSCORE_ENTRADA_BULL:
                 continue
-            # Filtro 2 (bull): ação deve estar ABAIXO da MA20 (distorção real confirmada)
-            if acima_ma20:
+            # Bull: lag temporário — ação deve estar acima da MA60 (tendência de médio prazo intacta)
+            if not ma60_map.get(ticker, False):
                 continue
         else:
             if pd.isna(zpeer_val) or zpeer_val <= ZSCORE_PEER_BEAR:
                 continue
-            # Filtro 2 (bear): ação deve estar ACIMA da MA20 (força relativa confirmada)
-            if not acima_ma20:
+            # Bear: força relativa — ação deve estar acima da MA20
+            if not ma20_map.get(ticker, False):
                 continue
 
         registros.append({
