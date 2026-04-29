@@ -8,7 +8,6 @@ SETORES = {
     "Materiais Básicos":      "XLB",
     "Utilidades":             "XLU",
     "Imobiliário":            "XLRE",
-    "Comunicações":           "XLC",
     "Industrial":             "XLI",
 }
 
