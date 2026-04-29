@@ -23,3 +23,4 @@
 22:20:12 | INFO     |   Janela:   09:00 - 16:30 BRT
 22:20:12 | INFO     |   Modo:     SIMULACAO
 22:20:12 | INFO     | ============================================================
+22:44:46 | ERROR    | Erro leitura: [WinError 10054] Foi forçado o cancelamento de uma conexão existente pelo host remoto

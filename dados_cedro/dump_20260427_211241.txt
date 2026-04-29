@@ -1,0 +1,21 @@
+21:12:41 | INFO     | Log salvo em: C:/estrategia/dados_cedro\dump_20260427_211241.txt
+21:12:41 | INFO     | Ativo=WINM26 | Periodo=M1 | Qtd=2000 | Dump=True
+21:12:41 | INFO     | Conectado: version|2.0
+21:12:41 | INFO     | RX: BROKER_STATUS|sem permissao
+21:12:42 | INFO     | Modo DUMP - enviando comandos exploratorios...
+21:12:42 | DEBUG    | CMD -> on#SQT#WINM26#LAST
+21:12:42 | INFO     | RX: SQT|WINM26|LAST|
+21:12:42 | INFO     | RX: SQT|WINM26|LAST|192755
+21:12:42 | DEBUG    | CMD -> on#GCH#WINM26#M1#10
+21:12:42 | DEBUG    | CMD -> on#GCH#WINM26#1#10
+21:12:43 | DEBUG    | CMD -> on#GCH#WINM26#D#10
+21:12:43 | DEBUG    | CMD -> on#GQH#WINM26#M1#10
+21:12:43 | DEBUG    | CMD -> on#GQH#WINM26#1#10
+21:12:43 | DEBUG    | CMD -> on#SQTHIST#WINM26#10
+21:12:44 | DEBUG    | CMD -> on#CANDLE#WINM26#M1#10
+21:12:44 | DEBUG    | CMD -> on#CHARTHISTORY#WINM26#M1#10
+21:12:44 | DEBUG    | CMD -> on#HISTORY#WINM26#M1#10
+21:12:45 | DEBUG    | CMD -> GCH#WINM26#M1#10
+21:12:45 | DEBUG    | CMD -> GQH#WINM26#M1#10
+21:13:15 | ERROR    | Leitura: [WinError 10038] Foi tentada uma operação em algum item que não é um soquete
+21:13:15 | WARNING  | Nenhum candle recebido. Tente --dump para ver o que o servidor retorna.
