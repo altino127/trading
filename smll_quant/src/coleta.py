@@ -1,41 +1,45 @@
+import time
 import yfinance as yf
 import pandas as pd
 from config import SETORES, INDICES
 
-INDICES_CRITICOS = ["ibov", "smll", "russell", "vix"]
 
-
-def _baixar_grupo(tickers: list, periodo: str) -> pd.DataFrame:
-    data = yf.download(tickers, period=periodo, interval="1d", auto_adjust=True, progress=False)["Close"]
-    if isinstance(data, pd.Series):
-        data = data.to_frame(name=tickers[0])
-    return data.dropna(axis=1, how="all")
+def _baixar_ticker(ticker: str, periodo: str, tentativas: int = 3) -> pd.Series:
+    for i in range(tentativas):
+        try:
+            raw = yf.download(ticker, period=periodo, interval="1d",
+                              auto_adjust=True, progress=False)
+            if raw.empty:
+                time.sleep(1)
+                continue
+            close = raw["Close"]
+            if isinstance(close, pd.DataFrame):
+                close = close.iloc[:, 0]
+            close = close.dropna()
+            if not close.empty:
+                return close
+        except Exception:
+            pass
+        time.sleep(1)
+    return pd.Series(dtype=float)
 
 
 def baixar_etfs_setoriais(periodo="1y") -> pd.DataFrame:
-    tickers = list(SETORES.values())
-    data = _baixar_grupo(tickers, periodo)
-    return data.rename(columns={v: k for k, v in SETORES.items()})
+    resultado = {}
+    for nome, ticker in SETORES.items():
+        serie = _baixar_ticker(ticker, periodo)
+        if not serie.empty:
+            resultado[nome] = serie
+    return pd.DataFrame(resultado)
 
 
 def baixar_indices(periodo="1y") -> pd.DataFrame:
-    ticker_para_nome = {v: k for k, v in INDICES.items()}
-    tickers = list(INDICES.values())
-    data = _baixar_grupo(tickers, periodo)
-    data = data.rename(columns=ticker_para_nome)
-
-    # Retry individual para indices criticos ausentes
-    faltando = [n for n in INDICES_CRITICOS if n not in data.columns]
-    for nome in faltando:
-        ticker = INDICES[nome]
-        try:
-            serie = yf.download(ticker, period=periodo, interval="1d", auto_adjust=True, progress=False)["Close"]
-            if not serie.empty:
-                data[nome] = serie
-        except Exception:
-            pass
-
-    return data
+    resultado = {}
+    for nome, ticker in INDICES.items():
+        serie = _baixar_ticker(ticker, periodo)
+        if not serie.empty:
+            resultado[nome] = serie
+    return pd.DataFrame(resultado)
 
 
 def baixar_acoes_smll(tickers: list[str], periodo="1y") -> pd.DataFrame:
