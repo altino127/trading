@@ -71,6 +71,27 @@ def setores_ativos(etfs: pd.DataFrame, regime: dict, spy: pd.Series = None) -> d
     return resultado
 
 
+def score_setores(etfs: pd.DataFrame, regime: dict, spy: pd.Series = None) -> dict:
+    """
+    Retorna score de forca para cada setor.
+    Bull: retorno absoluto do ETF na janela de momentum.
+    Bear: retorno relativo do ETF vs SPY na janela.
+    """
+    modo = modo_mercado(regime)
+    scores = {}
+    for setor in SETORES:
+        if setor not in etfs.columns:
+            scores[setor] = -999.0
+            continue
+        ret_etf = etfs[setor].pct_change(JANELA_MOMENTUM_DIAS).iloc[-1]
+        if modo == "bear" and spy is not None:
+            ret_spy = spy.pct_change(JANELA_MOMENTUM_DIAS).iloc[-1]
+            scores[setor] = float(ret_etf - ret_spy)
+        else:
+            scores[setor] = float(ret_etf)
+    return scores
+
+
 def resumo_regime(regime: dict, setores: dict, modo: str = "") -> None:
     label = f"[{modo.upper()} MODE]" if modo else ""
     print(f"\n=== REGIME MACRO {label} ===")

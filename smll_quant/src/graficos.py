@@ -173,6 +173,7 @@ def grafico_carteira(carteira: pd.DataFrame) -> go.Figure:
     tem_peer     = "zscore_peer" in carteira.columns
     tem_vol      = "vol" in carteira.columns
     tem_modo     = "modo" in carteira.columns
+    tem_peso     = "peso" in carteira.columns
 
     def _cor_risco(r):
         return RISCO_COR.get(r, CINZA) if tem_risco else CINZA
@@ -199,12 +200,17 @@ def grafico_carteira(carteira: pd.DataFrame) -> go.Figure:
         if tem_vol else ["n/a"] * len(carteira)
     )
     modo_vals = carteira["modo"].str.upper().tolist() if tem_modo else [""] * len(carteira)
+    peso_vals = (
+        [f"{v:.0%}" for v in carteira["peso"]]
+        if tem_peso else ["n/a"] * len(carteira)
+    )
 
-    headers = ["Ticker", "Setor", "Modo", "Z-IBOV", "Z-Peer", "Vol", "Risco"]
+    headers = ["Ticker", "Setor", "Modo", "Peso", "Z-IBOV", "Z-Peer", "Vol", "Risco"]
     valores  = [
         carteira["ticker"],
         carteira["setor"],
         modo_vals,
+        peso_vals,
         carteira["zscore"].round(2),
         zpeer_vals,
         vol_vals,
@@ -212,7 +218,7 @@ def grafico_carteira(carteira: pd.DataFrame) -> go.Figure:
     ]
 
     fig = go.Figure(go.Table(
-        columnwidth=[90, 160, 60, 70, 70, 60, 130],
+        columnwidth=[90, 160, 60, 60, 70, 70, 60, 130],
         header=dict(
             values=headers,
             fill_color="#2B2B3B",
@@ -229,6 +235,7 @@ def grafico_carteira(carteira: pd.DataFrame) -> go.Figure:
                 [BG2] * len(carteira),
                 [BG2] * len(carteira),
                 [BG2] * len(carteira),
+                [BG2] * len(carteira),
                 bg_risco,
             ],
             font=dict(
@@ -236,6 +243,7 @@ def grafico_carteira(carteira: pd.DataFrame) -> go.Figure:
                     ["white"] * len(carteira),
                     ["white"] * len(carteira),
                     [AZUL] * len(carteira),
+                    [AMARELO] * len(carteira),
                     ["white"] * len(carteira),
                     ["white"] * len(carteira),
                     ["white"] * len(carteira),

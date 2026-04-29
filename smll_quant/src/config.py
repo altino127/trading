@@ -38,6 +38,9 @@ ZSCORE_PEER_BEAR      = 0.6
 VIX_LIMITE            = 25
 MACRO_MINIMO_ON       = 3    # quantos dos 4 indicadores macro precisam estar OK para Bull mode
 
+N_SETORES_CARTEIRA    = 5    # quantos setores entram na carteira (os N mais fortes)
+PESOS_RANK            = [0.30, 0.25, 0.20, 0.15, 0.10]  # peso por ranking de forca do setor
+
 # Classificacao de risco por volatilidade anualizada
 VOL_BAIXA             = 0.35   # < 35% a.a. → baixo risco
 VOL_ALTA              = 0.65   # > 65% a.a. → alto risco

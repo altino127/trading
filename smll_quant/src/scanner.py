@@ -5,9 +5,9 @@ from distorcao import (
     calcular_distorcoes, calcular_zscore_peer,
     calcular_volatilidade, classificar_risco, snapshot_atual,
 )
-from momentum import regime_macro_ok, setores_ativos, resumo_regime, modo_mercado
+from momentum import regime_macro_ok, setores_ativos, resumo_regime, modo_mercado, score_setores
 from smll_composicao import SMLL_COMPOSICAO
-from config import SETORES
+from config import SETORES, N_SETORES_CARTEIRA, PESOS_RANK
 
 
 def rodar_scanner(
@@ -35,17 +35,24 @@ def rodar_scanner(
     snap["setor"]       = snap.index.map(lambda t: SMLL_COMPOSICAO.get(t.replace(".SA", ""), "Desconhecido"))
     snap["setor_ativo"] = snap["setor"].map(setores).fillna(False)
 
+    # Ranking dos N setores mais fortes e seus pesos
+    scores    = score_setores(precos_etfs, regime, spy)
+    top_rank  = sorted(scores.items(), key=lambda x: x[1], reverse=True)[:N_SETORES_CARTEIRA]
+    setores_top = [s for s, _ in top_rank]
+    pesos_rank  = PESOS_RANK[:len(top_rank)]
+    peso_map    = {s: pesos_rank[i] for i, (s, _) in enumerate(top_rank)}
+
     # Classifica risco para cada ação
     snap["risco"] = snap.apply(
         lambda r: classificar_risco(r["vol"] if not pd.isna(r["vol"]) else 0.5, r["setor_ativo"]),
         axis=1,
     )
 
-    # Ordena pelo sinal do modo atual
+    # Ordena pelo sinal do modo atual e filtra top N setores
     sort_col, asc = ("zscore", True) if modo == "bull" else ("zscore_peer", False)
-    candidatas = snap.sort_values(sort_col, ascending=asc).reset_index()
+    candidatas = snap[snap["setor"].isin(setores_top)].sort_values(sort_col, ascending=asc).reset_index()
 
-    # Sempre 1 por setor — usa sort_values + head(1) para lidar com NaN
+    # 1 ação por setor (dos top N)
     carteira = (
         candidatas
         .groupby("setor", group_keys=False)
@@ -53,12 +60,16 @@ def rodar_scanner(
         .reset_index(drop=True)
     )
 
-    print(f"\n=== CARTEIRA DA SEMANA [{modo.upper()} MODE] ===")
-    print(f"{'TICKER':<12} {'SETOR':<25} {'Z-IBOV':>7} {'Z-PEER':>7} {'VOL':>6}  RISCO")
+    carteira["peso"] = carteira["setor"].map(peso_map)
+    carteira["modo"] = modo
+
+    print(f"\n=== CARTEIRA DA SEMANA [{modo.upper()} MODE] — TOP {N_SETORES_CARTEIRA} SETORES ===")
+    print(f"{'TICKER':<12} {'SETOR':<25} {'PESO':>5} {'Z-IBOV':>7} {'Z-PEER':>7} {'VOL':>6}  RISCO")
     print("-" * 90)
     for _, row in carteira.iterrows():
         zpeer = f"{row['zscore_peer']:+.2f}" if not pd.isna(row.get("zscore_peer")) else "  n/a"
         vol   = f"{row['vol']:.0%}" if not pd.isna(row.get("vol")) else "  n/a"
-        print(f"{row['ticker']:<12} {row['setor']:<25} {row['zscore']:>+7.2f} {zpeer:>7} {vol:>6}  {row['risco']}")
+        peso  = f"{row['peso']:.0%}" if not pd.isna(row.get("peso")) else "  n/a"
+        print(f"{row['ticker']:<12} {row['setor']:<25} {peso:>5} {row['zscore']:>+7.2f} {zpeer:>7} {vol:>6}  {row['risco']}")
 
     return carteira, modo
