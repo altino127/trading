@@ -15,7 +15,7 @@ SMLL_COMPOSICAO = {
 
     # ── Consumo Discricionário (24) ───────────────────────────────
     "ALPA4":  "Consumo Discricionário",   # Alpargatas
-    "ALOS3":  "Consumo Discricionário",   # Allos (shoppings)
+    "ALOS3":  "Imobiliário",              # Allos (shoppings) — B3: Exploração de Imóveis
     "ANIM3":  "Consumo Discricionário",   # Anima Educação
     "AUAU3":  "Consumo Discricionário",   # Petlove
     "AZZA3":  "Consumo Discricionário",   # AZZA (Arezzo+Soma)
@@ -24,11 +24,11 @@ SMLL_COMPOSICAO = {
     "COGN3":  "Consumo Discricionário",   # Cogna
     "CVCB3":  "Consumo Discricionário",   # CVC Brasil
     "GRND3":  "Consumo Discricionário",   # Grendene
-    "IGTI11": "Consumo Discricionário",   # Iguatemi
+    "IGTI11": "Imobiliário",              # Iguatemi — B3: Exploração de Imóveis
     "LJQQ3":  "Consumo Discricionário",   # Lojas Quero-Quero
     "LREN3":  "Consumo Discricionário",   # Lojas Renner
     "MGLU3":  "Consumo Discricionário",   # Magazine Luiza
-    "MULT3":  "Consumo Discricionário",   # Multiplan
+    "MULT3":  "Imobiliário",              # Multiplan — B3: Exploração de Imóveis
     "NATU3":  "Consumo Discricionário",   # Natura
     "SBFG3":  "Consumo Discricionário",   # SBF Group (Centauro)
     "SEER3":  "Consumo Discricionário",   # Ser Educacional
